@@ -3,6 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
+use App\Models\UserIp;
+use App\Models\UserSetting;
+use Illuminate\Http\Request;
 
 
 class DataController extends Controller
@@ -98,5 +102,62 @@ class DataController extends Controller
         ];
 
         return response()->json($data);
+    }
+
+    public function getSettings(Request $request)
+    {
+        $data = $request->all();
+
+        $ips = UserIp::where('user_id', auth()->id())->get();
+        $userSetting = UserSetting::where('user_id', auth()->id())->first();
+
+        return response()->json([
+            'user_setting' => $userSetting,
+            'ips' => $ips
+        ]);
+    }
+
+    public function setSettings(Request $request)
+    {
+        $data = $request->all();
+
+        $userSetting = UserSetting::updateOrCreate([
+            'user_id' => auth()->id(),
+        ], [
+            'user_id' => auth()->id(),
+            'login' => $data['login'],
+            'password' => $data['password'],
+            'black_list_status' => $data['black_list_status'],
+            'white_list_status' => $data['white_list_status'],
+        ]);
+
+        UserIp::where('type_ip', UserIp::BLACK_LIST)->delete();
+        if (isset($data['black_list'])) {
+            foreach ($data['black_list'] as $ip) {
+                UserIp::create([
+                    'user_id' => auth()->id(),
+                    'ip' => $ip,
+                    'type_ip' => UserIp::BLACK_LIST
+                ]);
+            }
+        }
+
+        UserIp::where('type_ip', UserIp::WHITE_LIST)->delete();
+        if (isset($data['white_list'])) {
+            foreach ($data['white_list'] as $ip) {
+                UserIp::create([
+                    'user_id' => auth()->id(),
+                    'ip' => $ip,
+                    'type_ip' => UserIp::WHITE_LIST
+                ]);
+            }
+        }
+
+        $ips = UserIp::where('user_id', auth()->id())->get();
+
+        return response()->json([
+            'user_setting' => $userSetting,
+            'ips' => $ips
+        ]);
     }
 }
